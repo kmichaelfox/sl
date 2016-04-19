@@ -10,13 +10,26 @@ public class EnvironmentHistory {
 	private ArrayList<String> history;
 	private DataWriter out;
 	
+	private String filename;
+	private String path;
+	
 	public EnvironmentHistory() {
-		String path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data/EnvironmentHistory_"+System.currentTimeMillis()+".txt";
+		filename = "EnvironmentHistory_"+System.currentTimeMillis()+".arff";
+		path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data";
+		
 		if (path.startsWith("~" + File.separator)) {
 		    path = System.getProperty("user.home") + path.substring(1);
 		}
-		System.out.println("Logging environment history to: ["+path+"]");
-		out = new DataWriter(path);
+		
+		if (!(new File(path)).exists()) {
+			System.out.println("Supplied path is not valid. Defaulting to Desktop.");
+			path = System.getProperty("user.home");
+		}
+		
+		//path += ("/"+filename);
+		
+		System.out.println("Logging environment history to: ["+path+"/"+filename+"]");
+		out = new DataWriter(path+"/"+filename);
 		history = new ArrayList<String>();
 	}
 	
@@ -37,8 +50,22 @@ public class EnvironmentHistory {
 		out.closeFile();
 	}
 	
+	public String getFilename() {
+		return filename;
+	}
+	
+	public String getFilePath() {
+		return path;
+	}
+	
+	public String getFilenameAndPath() {
+		return path+"/"+filename;
+	}
+	
 	// alternative method - custom struct for POD-based environment history
 	private class EnvironmentData {
 		
 	}
+	
+	
 }

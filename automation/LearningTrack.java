@@ -28,10 +28,10 @@
 package com.kmichaelfox.agents.sl.automation;
 
 import ch.idsia.agents.Agent;
-import com.kmichaelfox.agents.es.LearningAgent;
-import com.kmichaelfox.agents.es.MLPESLearningAgent;
+import com.kmichaelfox.agents.sl.automation.LearningAgent;
+import com.kmichaelfox.agents.sl.automation.MLPESLearningAgent;
 import ch.idsia.benchmark.tasks.BasicTask;
-import com.kmichaelfox.agents.es.LearningTask;
+import com.kmichaelfox.agents.sl.automation.LearningTask;
 import ch.idsia.tools.EvaluationInfo;
 import ch.idsia.tools.MarioAIOptions;
 
@@ -79,9 +79,17 @@ private static int evaluateSubmission(MarioAIOptions marioAIOptions, LearningAge
 
     boolean verbose = true;
 
-    if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
-    {
-        System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
+    for (int i = 0; i < 5; i++) {
+    	// create file writer and begin logging samples
+    	((MLPAgent)agent).startEnvironmentReporting();
+	    if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
+	    {
+	        System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
+	    }
+	    // close file and destroy file writer
+	    ((MLPAgent)agent).stopEnvironmentReporting();
+	    marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
+	    basicTask.setOptionsAndReset(marioAIOptions);
     }
     EvaluationInfo evaluationInfo = basicTask.getEvaluationInfo();
     System.out.println(evaluationInfo.toString());
@@ -141,6 +149,7 @@ private static int oldEval(MarioAIOptions marioAIOptions, LearningAgent learning
     // perform the gameplay task on the same level
     marioAIOptions.setVisualization(true);
     Agent bestAgent = learningAgent.getBestAgent();
+    
     marioAIOptions.setAgent(bestAgent);
     BasicTask basicTask = new BasicTask(marioAIOptions);
     basicTask.setOptionsAndReset(marioAIOptions);
@@ -172,6 +181,7 @@ public static void main(String[] args)
 
 //        Level 0
 //    marioAIOptions.setArgs("-lf on -lg on");
+    marioAIOptions.setFPS(200);
     float finalScore = LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
 
 //        Level 1

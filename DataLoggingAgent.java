@@ -226,7 +226,7 @@ public class DataLoggingAgent extends KeyAdapter implements Agent {
 		hist.logHistory("@ATTRIBUTE obstacle_right NUMERIC");
 		hist.logHistory("@ATTRIBUTE obstacle_left NUMERIC");
 		hist.logHistory("@ATTRIBUTE obstacle_above NUMERIC");
-		hist.logHistory("@ATTRIBUTE gap_above NUMERIC");
+		hist.logHistory("@ATTRIBUTE gap_ahead NUMERIC");
 		hist.logHistory("@ATTRIBUTE mario_on_ground NUMERIC");
 		hist.logHistory("@ATTRIBUTE mario_can_jump NUMERIC");
 		hist.logHistory("@ATTRIBUTE class {NONE,L,R,D,L_JUMP,R_JUMP,JUMP,L_FIRE,R_FIRE,FIRE,L_JUMP_FIRE,R_JUMP_FIRE,JUMP_FIRE}");

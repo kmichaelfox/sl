@@ -41,7 +41,7 @@ import ch.idsia.benchmark.tasks.Task;
 import ch.idsia.evolution.EA;
 import ch.idsia.evolution.Evolvable;
 import ch.idsia.tools.MarioAIOptions;
-import com.kmichaelfox.agents.es.*;
+import com.kmichaelfox.agents.sl.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -93,7 +93,7 @@ public class ES implements EA {
 	    if (globalBestFitness < getBestFitnesses()[0]) {
 	    	globalBestFitness = getBestFitnesses()[0];
 	    	globalBest = (MLPAgent)getBests()[0];
-	    	System.out.println("\nnew global best!\n");
+	    	//System.out.println("\nnew global best!\n");
 	    }
 	}
 	
