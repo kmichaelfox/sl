@@ -30,14 +30,19 @@ package com.kmichaelfox.agents.sl.automation;
 //import ch.idsia.agents.learning.MediumSRNAgent;
 import ch.idsia.benchmark.mario.engine.GlobalOptions;
 import ch.idsia.benchmark.mario.environments.Environment;
-import com.kmichaelfox.agents.es.LearningTask;
+
+import com.kmichaelfox.agents.sl.DataWriter;
+import com.kmichaelfox.agents.sl.automation.LearningTask;
+
+
 //import ch.idsia.evolution.Evolvable;
 import ch.idsia.agents.Agent;
 //import ch.idsia.evolution.ea.ES;
 import ch.idsia.utils.wox.serial.Easy;
 
-import com.kmichaelfox.agents.es.MLPAgent;
+import com.kmichaelfox.agents.sl.automation.MLPAgent;
 
+import java.io.File;
 import java.text.DecimalFormat;
 
 /**
@@ -49,120 +54,134 @@ import java.text.DecimalFormat;
  */
 public class MLPESLearningAgent implements LearningAgent
 {
-private LearningTask learningTask = null;
+	private LearningTask learningTask = null;
 
-private MLPAgent agent;
-Agent bestAgent;
-private int bestScore = 5;
-ES es;
-int populationSize = 15;
-int generations = 5000;
-long evaluationQuota; //common number of trials
-long currentEvaluation; // number of exhausted trials
-private String name = getClass().getSimpleName();
-DecimalFormat df = new DecimalFormat("###.####");
+	private MLPAgent agent;
+	Agent bestAgent;
+	private int bestScore = 5;
+	ES es;
+	int populationSize = 60;
+	int generations = 2000;
+	long evaluationQuota; //common number of trials
+	long currentEvaluation; // number of exhausted trials
+	private String name = getClass().getSimpleName();
+	DecimalFormat df = new DecimalFormat("###.####");
 
-public MLPESLearningAgent()
-{
-    //agent = new MediumSRNAgent();
-	agent = new MLPAgent();
-}
+	public MLPESLearningAgent() {
+		//agent = new MediumSRNAgent();
+		agent = new MLPAgent();
+	}
 
-public void learn()
-{
-    String fileName;
+	public void learn() {
+		String filename;
+		String path;
 
-    for (int gen = 0; gen < generations; gen++)
-    {
-        es.nextGeneration();
+		for (int gen = 0; gen < generations; gen++)
+		{
+			es.nextGeneration();
 
-        int fitn = (int) es.getBestFitnesses()[0];
-        System.out.print("Generation: " + gen + " current best: " + df.format(fitn) + ";  ");
+			int fitn = (int) es.getBestFitnesses()[0];
+			System.out.print("Generation: " + gen + " current best: " + df.format(fitn) + ";  ");
 
-        if (fitn > bestScore /*&& marioStatus == Environment.MARIO_STATUS_WIN*/)
-        {
-            bestScore = fitn;
-            fileName = "evolved-progress-" + name + gen + "-uid-" + GlobalOptions.getTimeStamp() + ".xml";
-            final Agent a = (Agent) es.getBests()[0];
-            Easy.save(a, fileName);
-            learningTask.dumpFitnessEvaluation(bestScore, "fitnessImprovements-" + name + ".txt");
+			if (fitn > bestScore /*&& marioStatus == Environment.MARIO_STATUS_WIN*/)
+			{
+				bestScore = fitn;
+				//fileName = "evolved-progress-" + name + gen + "-uid-" + GlobalOptions.getTimeStamp() + ".xml";
+				final Agent a = (Agent) es.getBests()[0];
+				//Easy.save(a, fileName);
+				//learningTask.dumpFitnessEvaluation(bestScore, "fitnessImprovements-" + name + ".txt");
 
-            System.out.println("new best:" + fitn);
-            System.out.print("MODE: = " + learningTask.getEnvironment().getEvaluationInfo().marioMode);
-            System.out.print("TIME LEFT: " + learningTask.getEnvironment().getEvaluationInfo().timeLeft);
-            System.out.println(", STATUS = " + learningTask.getEnvironment().getEvaluationInfo().marioStatus);
-            bestAgent = a;
-        }
-    }
-}
+				System.out.println("new best:" + fitn);
+				System.out.print("MODE: = " + learningTask.getEnvironment().getEvaluationInfo().marioMode);
+				System.out.print("TIME LEFT: " + learningTask.getEnvironment().getEvaluationInfo().timeLeft);
+				System.out.println(", STATUS = " + learningTask.getEnvironment().getEvaluationInfo().marioStatus);
+				bestAgent = a;
+			}
+		}
+		
+		// for writing the weights of the final trained agent
+		filename = "MLP_weights_"+System.currentTimeMillis()+".txt";
+		path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data";
+		
+		if (path.startsWith("~" + File.separator)) {
+		    path = System.getProperty("user.home") + path.substring(1);
+		}
+		
+		if (!(new File(path)).exists()) {
+			System.out.println("Supplied path is not valid. Defaulting to Desktop.");
+			path = System.getProperty("user.home");
+		}
+		
+		//path += ("/"+filename);
+		
+		System.out.println("\nLogging MLP weights to: ["+path+"/"+filename+"]");
+		DataWriter dw = new DataWriter(path+"/"+filename);
+		
+		double[] weights = ((MLPAgent)agent).getWeightsArray();
+		for (int i = 0; i < weights.length; i++) {
+			dw.println(""+weights[i]);
+		}
+		dw.closeFile();
+	}
 
-public void giveReward(final float reward)
-{
+	public void giveReward(final float reward) {
 
-}
+	}
 
-public void newEpisode()
-{
+	public void newEpisode() {
 
-}
+	}
 
-public void setLearningTask(final LearningTask learningTask)
-{
-    this.learningTask = learningTask;
-}
+	public void setLearningTask(final LearningTask learningTask) {
+		this.learningTask = learningTask;
+	}
 
-public void setEvaluationQuota(final long num)
-{
-    this.evaluationQuota = num;
-}
+	public void setEvaluationQuota(final long num) {
+		this.evaluationQuota = num;
+	}
 
-public Agent getBestAgent()
-{
-    return bestAgent;
-}
+	public Agent getBestAgent() {
+		return bestAgent;
+	}
 
-public void init()
-{
-    es = new ES(learningTask, agent, populationSize);
-}
+	public void init() {
+		es = new ES(learningTask, agent, populationSize);
+	}
 
-public boolean[] getAction()
-{
-    System.out.println("agent = " + agent);
-    return agent.getAction();
-}
+	public boolean[] getAction() {
+		System.out.println("agent = " + agent);
+		return agent.getAction();
+	}
 
-public void integrateObservation(final Environment environment)
-{
-    //agent.integrateObservation(environment);
-}
+	public void integrateObservation(final Environment environment) {
+		//agent.integrateObservation(environment);
+	}
 
-public void giveIntermediateReward(final float intermediateReward)
-{
-    //agent.giveIntermediateReward(intermediateReward);
-}
+	public void giveIntermediateReward(final float intermediateReward) {
+		//agent.giveIntermediateReward(intermediateReward);
+	}
 
-/**
- * clears all dynamic data, such as hidden layers in recurrent networks
- * just implement an empty method for a reactive controller
- */
-public void reset()
-{
-    agent.reset();
-}
+	/**
+	 * clears all dynamic data, such as hidden layers in recurrent networks
+	 * just implement an empty method for a reactive controller
+	 */
+	public void reset() {
+		agent.reset();
+	}
 
-public void setObservationDetails(final int rfWidth, final int rfHeight, final int egoRow, final int egoCol)
-{
-    agent.setObservationDetails(rfWidth, rfHeight, egoRow, egoCol);
-}
+	public void setObservationDetails(final int rfWidth, final int rfHeight, final int egoRow, final int egoCol) {
+		agent.setObservationDetails(rfWidth, rfHeight, egoRow, egoCol);
+	}
 
-public String getName()
-{
-    return name;  //To change body of implemented methods use File | Settings | File Templates.
-}
+	public String getName() {
+		return name;  //To change body of implemented methods use File | Settings | File Templates.
+	}
 
-public void setName(final String name)
-{
-    this.name = name;
-}
+	public void setName(final String name) {
+		this.name = name;
+	}
+
+	public double[] getBestAgentWeightsArray() {
+		return ((MLPAgent)bestAgent).getWeightsArray();
+	}
 }

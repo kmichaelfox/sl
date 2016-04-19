@@ -2,25 +2,36 @@ package com.kmichaelfox.agents.sl.automation;
 
 import ch.idsia.agents.Agent;
 import ch.idsia.agents.controllers.BasicMarioAIAgent;
+import ch.idsia.benchmark.mario.engine.sprites.Mario;
 import ch.idsia.benchmark.mario.environments.Environment;
 import ch.idsia.evolution.Evolvable;
-import com.kmichaelfox.agents.es.MLP;
+
+import com.kmichaelfox.agents.sl.EnvironmentHistory;
+import com.kmichaelfox.agents.sl.automation.MLP;
 
 public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	private MLP mlp;
 	final int numberOfOutputs = Environment.numberOfKeys;
 	//final int numberOfInputs = 56;
-	final int numberOfInputs = 24;
+	//final int numberOfInputs = 24;
+	final int numberOfInputs = 13;
+	final int numberOfHiddenNodes = 15;
 	static private final String name = "MLPAgent";
+	
+	private boolean[] action;
+	private EnvironmentHistory hist = null;
+	private String currentState;
 	
 	public MLPAgent() {
 		super(name);
-		mlp = new MLP(numberOfInputs, 10, numberOfOutputs);
+		mlp = new MLP(numberOfInputs, numberOfHiddenNodes, numberOfOutputs);
+		action = new boolean[Environment.numberOfKeys];
 	}
 
 	private MLPAgent(MLP mlp) {
 	    super(name);
 	    this.mlp = mlp;
+	    action = new boolean[Environment.numberOfKeys];
 	}
 		
 	public Evolvable getNewInstance() {
@@ -33,6 +44,7 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	
 	public void reset() {
 	    mlp.reset();
+	    action = new boolean[Environment.numberOfKeys];
 	}
 	
 	public void mutate() {
@@ -53,19 +65,19 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	    byte[][] scene = levelScene;
 	    
 	    /* INPUTS FOR ORIGINAL EXAMPLE AGENT (plus marioMode) */
-	    double[] inputs = new double[]{
-	    		probe(-1, -1, scene), probe(0, -1, scene), probe(1, -1, scene),
-	            probe(-1, 0, scene), probe(0, 0, scene), probe(1, 0, scene),
-	            probe(-1, 1, scene), probe(0, 1, scene), probe(1, 1, scene),
-	            probe(-1, -1, enemies), probe(0, -1, enemies), probe(1, -1, enemies),
-	            probe(-1, 0, enemies), probe(0, 0, enemies), probe(1, 0, enemies),
-	            probe(-1, 1, enemies), probe(0, 1, enemies), probe(1, 1, enemies),
-	            isMarioOnGround ? 1 : 0, 
-	            isMarioAbleToJump ? 1 : 0,
-	            (marioMode == 2) ? 1 : 0,
-	            (marioMode == 1) ? 1 : 0,
-	            (marioMode == 0) ? 1 : 0,
-	            1};
+//	    double[] inputs = new double[]{
+//	    		probe(-1, -1, scene), probe(0, -1, scene), probe(1, -1, scene),
+//	            probe(-1, 0, scene), probe(0, 0, scene), probe(1, 0, scene),
+//	            probe(-1, 1, scene), probe(0, 1, scene), probe(1, 1, scene),
+//	            probe(-1, -1, enemies), probe(0, -1, enemies), probe(1, -1, enemies),
+//	            probe(-1, 0, enemies), probe(0, 0, enemies), probe(1, 0, enemies),
+//	            probe(-1, 1, enemies), probe(0, 1, enemies), probe(1, 1, enemies),
+//	            isMarioOnGround ? 1 : 0, 
+//	            isMarioAbleToJump ? 1 : 0,
+//	            (marioMode == 2) ? 1 : 0,
+//	            (marioMode == 1) ? 1 : 0,
+//	            (marioMode == 0) ? 1 : 0,
+//	            1};
 	    
 	    /* INPUTS FOR EXPANDED GRID EXAMPLE AGENT (plus marioMode) */
 //	    double[] inputs = new double[]{
@@ -87,28 +99,35 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 //	            1};
 	    
 	    /* INPUTS FOR REVISED RULE AGENT */
-//	    double[] inputs = new double[]{
-//	    		isEnemyAhead(1) ? 1 : 0,
-//	    		isEnemyAhead(2) ? 1 : 0,
-//	    		isEnemyAhead(-1) ? 1 : 0,
-//	    		isEnemyAhead(-2) ? 1 : 0,
-//	    		isObstacleAhead() ? 1 : 0,
-//	    		isObstacleAbove() ? 1 : 0,
-//	    		isGapAhead() ? 1 : 0,
-//	    		isMarioOnGround ? 1 : 0,
-//	    		isMarioAbleToJump ? 1 : 0,
-//	    		(marioMode == 2) ? 1 : 0,
-//	    		(marioMode == 1) ? 1 : 0,
-//	    		(marioMode == 0) ? 1 : 0,
-//	    		1
-//	    };
+	    double[] inputs = new double[]{
+	    		isEnemyAhead(1) ? 1 : 0,
+	    		isEnemyAhead(2) ? 1 : 0,
+	    		isEnemyAhead(-1) ? 1 : 0,
+	    		isEnemyAhead(-2) ? 1 : 0,
+	    		isObstacleAhead(1) ? 1 : 0,
+	    		isObstacleAbove() ? 1 : 0,
+	    		isGapAhead() ? 1 : 0,
+	    		isMarioOnGround ? 1 : 0,
+	    		isMarioAbleToJump ? 1 : 0,
+	    		(marioMode == 2) ? 1 : 0,
+	    		(marioMode == 1) ? 1 : 0,
+	    		(marioMode == 0) ? 1 : 0,
+	    		1
+	    };
 	    
 	    double[] outputs = mlp.propagate(inputs);
-	    boolean[] action = new boolean[numberOfOutputs];
+	    //boolean[] action = new boolean[numberOfOutputs];
 	    for (int i = 0; i < action.length; i++)
 	    {
 	        action[i] = outputs[i] > 0;
 	    }
+
+	    // log current state
+	    if (hist != null) {
+	    	findCurrentState();
+			hist.logHistory(currentState);
+	    }
+		
 	    return action;
 	}
 	
@@ -126,46 +145,197 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	    return (scene[realX][realY] != 0) ? 1 : 0;
 	}
 	
-	private boolean isEnemyAhead(int stepsAhead) {
-		//if (getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0) {
-			//System.out.println(getEnemiesCellValue(marioEgoRow, marioEgoCol + 1));
-		//}
-		return getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 ||
-				getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0;
-//		if (getEnemiesCellValue(marioEgoRow, marioEgoCol + 1) != 2) {
-//			System.out.println(getEnemiesCellValue(marioEgoRow, marioEgoCol + 1));
-//		}
-//		return (getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 &&
-//				getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 20) ||
-//				(getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0 &&
-//				getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 20) ||
-//				(getEnemiesCellValue(marioEgoRow + 1, marioEgoCol + stepsAhead) != 0 &&
-//				getEnemiesCellValue(marioEgoRow + 1, marioEgoCol + stepsAhead) != 20);
+	public double[] getWeightsArray() {
+		return mlp.getWeightsArray();
 	}
 	
-	private boolean isObstacleAbove() {
+	public void startEnvironmentReporting() {
+		currentState = "";
+		hist = new EnvironmentHistory();
+		printARFFHeaderToHistory();
+	}
+	
+	public void stopEnvironmentReporting() {
+		hist.writeHistoryToFile();
+		hist = null;
+	}
+	
+	public int getEnemiesCellValue(int x, int y)
+	{
+		if (x < 0 || x >= levelScene.length || y < 0 || y >= levelScene[0].length)
+			return 0;
+
+		return enemies[x][y];
+	}
+
+	public int getReceptiveFieldCellValue(int x, int y)
+	{
+		if (x < 0 || x >= levelScene.length || y < 0 || y >= levelScene[0].length)
+			return 0;
+
+		return levelScene[x][y];
+	}
+
+	private void printARFFHeaderToHistory() {
+		if (hist == null) {
+			throw new RuntimeException("EnvironmentHistory failed to initialize");
+		}
+
+		hist.logHistory("@RELATION action");
+		hist.logHistory("");
+		hist.logHistory("@ATTRIBUTE mario_mode NUMERIC");
+		hist.logHistory("@ATTRIBUTE enemies_right_close NUMERIC");
+		hist.logHistory("@ATTRIBUTE enemies_right_far NUMERIC");
+		hist.logHistory("@ATTRIBUTE enemies_left_close NUMERIC");
+		hist.logHistory("@ATTRIBUTE enemies_left_far NUMERIC");
+		hist.logHistory("@ATTRIBUTE obstacle_right NUMERIC");
+		hist.logHistory("@ATTRIBUTE obstacle_left NUMERIC");
+		hist.logHistory("@ATTRIBUTE obstacle_above NUMERIC");
+		hist.logHistory("@ATTRIBUTE gap_ahead NUMERIC");
+		hist.logHistory("@ATTRIBUTE mario_on_ground NUMERIC");
+		hist.logHistory("@ATTRIBUTE mario_can_jump NUMERIC");
+		hist.logHistory("@ATTRIBUTE class {NONE,L,R,D,L_JUMP,R_JUMP,JUMP,L_FIRE,R_FIRE,FIRE,L_JUMP_FIRE,R_JUMP_FIRE,JUMP_FIRE}");
+		hist.logHistory("");
+		hist.logHistory("@DATA");
+	}
+
+	private void findCurrentState() {
+		currentState = "";
+		//hist.logHistory("@ATTRIBUTE mario_mode NUMERIC");
+		currentState += (marioMode+",");
+		//hist.logHistory("@ATTRIBUTE enemies_right_close NUMERIC");
+		currentState += ((isEnemyRightClose() ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE enemies_right_far NUMERIC");
+		currentState += ((isEnemyRightFar() ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE enemies_left_close NUMERIC");
+		currentState += ((isEnemyLeftClose() ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE enemies_left_far NUMERIC");
+		currentState += ((isEnemyLeftFar() ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE obstacle_right NUMERIC");
+		currentState += ((isObstacleAhead(1) ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE obstacle_left NUMERIC");
+		currentState += ((isObstacleAhead(-1) ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE obstacle_above NUMERIC");
+		currentState += ((isObstacleAbove() ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE gap_above NUMERIC");
+		currentState += ((isGapAhead() ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE mario_on_ground NUMERIC");
+		currentState += ((isMarioOnGround ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE mario_can_jump NUMERIC");
+		currentState += ((isMarioAbleToJump ? 1 : 0)+",");
+		//hist.logHistory("@ATTRIBUTE class {NONE,L,R,D,L_JUMP,R_JUMP,JUMP,L_FIRE,R_FIRE,FIRE,L_JUMP_FIRE,R_JUMP_FIRE,JUMP_FIRE}");
+		currentState += (getActionType());
+	}
+	
+	private String getActionType() {
+		String actionType = "";
+		if (action[Mario.KEY_RIGHT]) {
+			actionType += "R";
+		} else if (action[Mario.KEY_LEFT]) {
+			actionType += "L";
+		} else if (action[Mario.KEY_DOWN]) {
+			return "D";
+		}
+		
+		if (action[Mario.KEY_JUMP]) {
+			if (!actionType.isEmpty()) {
+				actionType += "_";
+			}
+			
+			actionType += "JUMP";
+		}
+		
+		if (action[Mario.KEY_SPEED]) {
+			if (!actionType.isEmpty()) {
+				actionType += "_";
+			}
+			
+			actionType += "FIRE";
+		}
+		
+		if (actionType.isEmpty()) {
+			actionType = "NONE";
+		}
+		return actionType;
+	}
+
+	public boolean isEnemyRightClose() {
+		return isEnemyAhead(1) || isEnemyAhead(2);
+	}
+
+	public boolean isEnemyRightFar() {
+		return isEnemyAhead(3) || isEnemyAhead(4);
+	}
+
+	public boolean isEnemyLeftClose() {
+		return isEnemyAhead(-1) || isEnemyAhead(-2);
+	}
+
+	public boolean isEnemyLeftFar() {
+		return isEnemyAhead(-3) || isEnemyAhead(-4);
+	}
+
+	private boolean isEnemyAhead(int stepsAhead) {
+		return getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 ||
+				getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0;
+	}
+
+	public boolean isObstacleAbove() {
 		return getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != 0 &&
 				getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != -24 ||
 				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != 0 &&
 				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != -24;
 	}
-	
-	private boolean isObstacleAhead() {
-//		return ((getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol + 1) == 0 &&
-//	            getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + 1) == 0) ||
-//	            (getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 2) != 0) &&
-//	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 2) != -24 &&
-//	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != 0 &&
-//	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != -24);
-//		return getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != 0;
-		return (getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != 0 ||
-				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + 1) != 0);// &&
-				//getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + 1) != -24) &&
-				//(getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) != 0 &&
-				//getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) != -24);
+
+	public boolean isObstacleAhead(int stepsAhead) {
+		return (getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 ||
+				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0);
 	}
-	
-	private boolean isGapAhead() {
+
+	public boolean isGapAhead() {
 		return getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) == 0;
 	}
+	
+//	private boolean isEnemyAhead(int stepsAhead) {
+//		//if (getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0) {
+//			//System.out.println(getEnemiesCellValue(marioEgoRow, marioEgoCol + 1));
+//		//}
+//		return getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 ||
+//				getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0;
+////		if (getEnemiesCellValue(marioEgoRow, marioEgoCol + 1) != 2) {
+////			System.out.println(getEnemiesCellValue(marioEgoRow, marioEgoCol + 1));
+////		}
+////		return (getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 &&
+////				getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 20) ||
+////				(getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0 &&
+////				getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 20) ||
+////				(getEnemiesCellValue(marioEgoRow + 1, marioEgoCol + stepsAhead) != 0 &&
+////				getEnemiesCellValue(marioEgoRow + 1, marioEgoCol + stepsAhead) != 20);
+//	}
+//	
+//	private boolean isObstacleAbove() {
+//		return getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != 0 &&
+//				getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != -24 ||
+//				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != 0 &&
+//				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != -24;
+//	}
+//	
+//	private boolean isObstacleAhead(int stepsAhead) {
+////		return ((getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol + 1) == 0 &&
+////	            getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + 1) == 0) ||
+////	            (getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 2) != 0) &&
+////	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 2) != -24 &&
+////	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != 0 &&
+////	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != -24);
+////		return getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != 0;
+//		return (getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 ||
+//				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0);// &&
+//				//getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + 1) != -24) &&
+//				//(getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) != 0 &&
+//				//getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) != -24);
+//	}
+//	
+//	private boolean isGapAhead() {
+//		return getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) == 0;
+//	}
 }

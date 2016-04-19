@@ -27,7 +27,7 @@
 
 package com.kmichaelfox.agents.sl.automation;
 
-import com.kmichaelfox.agents.es.LearningTask;
+import com.kmichaelfox.agents.sl.automation.LearningTask;
 import ch.idsia.agents.Agent;
 
 /**
