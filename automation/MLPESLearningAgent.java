@@ -61,7 +61,7 @@ public class MLPESLearningAgent implements LearningAgent
 	private int bestScore = 5;
 	ES es;
 	int populationSize = 60;
-	int generations = 2000;
+	int generations = 200;
 	long evaluationQuota; //common number of trials
 	long currentEvaluation; // number of exhausted trials
 	private String name = getClass().getSimpleName();
@@ -73,35 +73,42 @@ public class MLPESLearningAgent implements LearningAgent
 	}
 
 	public void learn() {
-		String filename;
-		String path;
+		//String filename;
+		//String path;
 
 		for (int gen = 0; gen < generations; gen++)
 		{
 			es.nextGeneration();
 
 			int fitn = (int) es.getBestFitnesses()[0];
+			final MLPAgent a = (MLPAgent)es.getBests()[0];
 			System.out.print("Generation: " + gen + " current best: " + df.format(fitn) + ";  ");
 
-			if (fitn > bestScore /*&& marioStatus == Environment.MARIO_STATUS_WIN*/)
+			if (fitn > bestScore && (a.getMarioStatus() == Environment.MARIO_STATUS_WIN))
 			{
 				bestScore = fitn;
 				//fileName = "evolved-progress-" + name + gen + "-uid-" + GlobalOptions.getTimeStamp() + ".xml";
-				final Agent a = (Agent) es.getBests()[0];
+				//final Agent a = (Agent) es.getBests()[0];
 				//Easy.save(a, fileName);
 				//learningTask.dumpFitnessEvaluation(bestScore, "fitnessImprovements-" + name + ".txt");
 
-				System.out.println("new best:" + fitn);
-				System.out.print("MODE: = " + learningTask.getEnvironment().getEvaluationInfo().marioMode);
-				System.out.print("TIME LEFT: " + learningTask.getEnvironment().getEvaluationInfo().timeLeft);
+				System.out.print("new best:" + fitn);
+				System.out.print("  MODE: = " + learningTask.getEnvironment().getEvaluationInfo().marioMode);
+				System.out.print(", TIME LEFT: " + learningTask.getEnvironment().getEvaluationInfo().timeLeft);
 				System.out.println(", STATUS = " + learningTask.getEnvironment().getEvaluationInfo().marioStatus);
-				bestAgent = a;
+				bestAgent = (Agent)a.copy();
 			}
+		}
+	}
+	
+	public void logBestAgentWeights() {
+		if (bestAgent == null) {
+			return;
 		}
 		
 		// for writing the weights of the final trained agent
-		filename = "MLP_weights_"+System.currentTimeMillis()+".txt";
-		path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data";
+		String filename = "MLP_weights_"+System.currentTimeMillis()+".txt";
+		String path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data";
 		
 		if (path.startsWith("~" + File.separator)) {
 		    path = System.getProperty("user.home") + path.substring(1);
@@ -117,7 +124,7 @@ public class MLPESLearningAgent implements LearningAgent
 		System.out.println("\nLogging MLP weights to: ["+path+"/"+filename+"]");
 		DataWriter dw = new DataWriter(path+"/"+filename);
 		
-		double[] weights = ((MLPAgent)agent).getWeightsArray();
+		double[] weights = ((MLPAgent)bestAgent).getWeightsArray();
 		for (int i = 0; i < weights.length; i++) {
 			dw.println(""+weights[i]);
 		}
@@ -142,6 +149,10 @@ public class MLPESLearningAgent implements LearningAgent
 
 	public Agent getBestAgent() {
 		return bestAgent;
+	}
+	
+	public Agent getBestRemainingAgent() {
+		return (Agent)es.getBests()[0];
 	}
 
 	public void init() {

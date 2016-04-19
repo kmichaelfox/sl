@@ -30,6 +30,7 @@ package com.kmichaelfox.agents.sl;
 import ch.idsia.agents.Agent;
 import ch.idsia.agents.controllers.BasicMarioAIAgent;
 import ch.idsia.benchmark.mario.engine.sprites.Mario;
+import ch.idsia.benchmark.mario.engine.sprites.Sprite;
 import ch.idsia.benchmark.mario.environments.Environment;
 
 import java.awt.event.KeyAdapter;
@@ -83,22 +84,40 @@ public class DataLoggingAgent extends KeyAdapter implements Agent {
 	int zLevelScene = 1;
 	int zLevelEnemies = 0;
 
-	EnvironmentHistory hist;
+	EnvironmentHistory hist = null;
 	String currentState;
+	double currentProgress = 0;
+	int stuckCounter = 0;
 
 
 	public DataLoggingAgent() {
 		this.reset();
-		hist = new EnvironmentHistory();
+		//hist = new EnvironmentHistory();
 		currentState = "";
-		printARFFHeaderToHistory();
+		//printARFFHeaderToHistory();
 		//        RegisterableAgent.registerAgent(this);
 	}
 
 	public boolean[] getAction() {
+		tickStuckCounter();
 		findCurrentState();
-		hist.logHistory(currentState);
+		if (hist != null) {
+			hist.logHistory(currentState);
+		}
 		return action;
+	}
+	
+	private void tickStuckCounter() {
+		if (Math.abs(marioFloatPos[0] - currentProgress) > 20) {
+			stuckCounter = 0;
+			currentProgress = marioFloatPos[0];
+		} else {
+			stuckCounter++;
+		}
+	}
+	
+	public boolean isMarioStuck() {
+		return stuckCounter > 50;
 	}
 
 	public void integrateObservation(Environment environment)
@@ -254,6 +273,9 @@ public class DataLoggingAgent extends KeyAdapter implements Agent {
 		currentState += ((isObstacleAbove() ? 1 : 0)+",");
 		//hist.logHistory("@ATTRIBUTE gap_above NUMERIC");
 		currentState += ((isGapAhead() ? 1 : 0)+",");
+		currentState += ((isPowerUpAhead(-3) ? 1 : 0)+","); // added
+		currentState += ((isPowerUpAhead(3) ? 1 : 0)+",");  // added
+		currentState += ((isPowerUpAbove(3) ? 1 : 0)+",");  // added
 		//hist.logHistory("@ATTRIBUTE mario_on_ground NUMERIC");
 		currentState += ((isMarioOnGround ? 1 : 0)+",");
 		//hist.logHistory("@ATTRIBUTE mario_can_jump NUMERIC");
@@ -293,6 +315,32 @@ public class DataLoggingAgent extends KeyAdapter implements Agent {
 		}
 		return actionType;
 	}
+	
+	public boolean isPowerUpAhead(int distance) {
+		boolean present = false;
+		int sign = distance/Math.abs(distance);
+		int abs_dist = Math.abs(distance)+1;
+		for (int height = -5; height < 5; height++) {
+			for (int width = 1; width < abs_dist; width++) {
+				present = present || 
+						(getEnemiesCellValue(marioEgoRow+height, marioEgoCol+(width*sign)) == 2 || // Mushroom 
+						getEnemiesCellValue(marioEgoRow+height, marioEgoCol+(width*sign)) == 3);   // Fire Flower
+			}
+		}
+		return present;
+	}
+	
+	public boolean isPowerUpAbove(int distance) {
+		boolean present = false;
+		for (int height = 0; height < distance; height++) {
+			for (int width = -(receptiveFieldWidth/2); width < (int)(receptiveFieldWidth/2); width++) {
+				present = present || 
+						(getEnemiesCellValue(marioEgoRow-height-2, marioEgoCol+width) == 2 || // Mushroom 
+						getEnemiesCellValue(marioEgoRow-height-2, marioEgoCol+width) == 3);   // Fire Flower
+			}
+		}
+		return present;
+	}
 
 	public boolean isEnemyRightClose() {
 		return isEnemyAhead(1) || isEnemyAhead(2);
@@ -316,10 +364,11 @@ public class DataLoggingAgent extends KeyAdapter implements Agent {
 	}
 
 	public boolean isObstacleAbove() {
+		
 		return getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != 0 &&
-				getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != -24 ||
-				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != 0 &&
-				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != -24;
+				getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != 2 ||
+				getReceptiveFieldCellValue(marioEgoRow - 3, marioEgoCol) != 0 &&
+				getReceptiveFieldCellValue(marioEgoRow - 3, marioEgoCol) != 2;
 	}
 
 	public boolean isObstacleAhead(int stepsAhead) {
@@ -328,10 +377,15 @@ public class DataLoggingAgent extends KeyAdapter implements Agent {
 	}
 
 	public boolean isGapAhead() {
-		return getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) == 0;
+		if (getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) == 0 && isMarioOnGround) {
+			System.out.println("gap ahead");
+		}
+		return getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) == 0 && isMarioOnGround;
 	}
 	
 	public void closeHistoryBuffer() {
-		hist.writeHistoryToFile();
+		if (hist != null) {
+			hist.writeHistoryToFile();
+		}
 	}
 }

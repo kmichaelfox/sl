@@ -27,11 +27,19 @@
 
 package com.kmichaelfox.agents.sl.automation;
 
+import java.io.File;
+
 import ch.idsia.agents.Agent;
+
+import com.kmichaelfox.agents.sl.DataWriter;
 import com.kmichaelfox.agents.sl.automation.LearningAgent;
 import com.kmichaelfox.agents.sl.automation.MLPESLearningAgent;
+
+import ch.idsia.benchmark.mario.environments.Environment;
 import ch.idsia.benchmark.tasks.BasicTask;
+
 import com.kmichaelfox.agents.sl.automation.LearningTask;
+
 import ch.idsia.tools.EvaluationInfo;
 import ch.idsia.tools.MarioAIOptions;
 
@@ -62,37 +70,102 @@ final static int populationSize = 100;
 private static int evaluateSubmission(MarioAIOptions marioAIOptions, LearningAgent learningAgent)
 {
     LearningTask learningTask = new LearningTask(marioAIOptions); // provides the level
+
     learningAgent.setEvaluationQuota(LearningTask.getEvaluationQuota());        // limits the number of evaluations per run for LearningAgent
     learningAgent.setLearningTask(learningTask);  // gives LearningAgent access to evaluator via method LearningTask.evaluate(Agent)
     learningAgent.init();
-    learningAgent.learn(); // launches the training process. numberOfTrials happen here
+    for (int i = 0; i < 5; i++) {
+    	learningAgent.learn(); // launches the training process. numberOfTrials happen here
+    	marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
+    	learningTask.setOptionsAndReset(marioAIOptions);
+    }
     Agent agent = learningAgent.getBestAgent(); // this agent will be evaluated
+    ((MLPESLearningAgent)learningAgent).logBestAgentWeights();
 
     // perform the gameplay task on the same level
-    marioAIOptions.setVisualization(true);
+    //marioAIOptions.setVisualization(true);
     System.out.println("LearningTrack best agent = " + agent);
     marioAIOptions.setAgent(agent);
-    BasicTask basicTask = new BasicTask(marioAIOptions);
-    basicTask.setOptionsAndReset(marioAIOptions);
-    System.out.println("basicTask = " + basicTask);
-    System.out.println("agent = " + agent);
+//    BasicTask basicTask = new BasicTask(marioAIOptions);
+//    basicTask.setOptionsAndReset(marioAIOptions);
+//    System.out.println("basicTask = " + basicTask);
+//    System.out.println("agent = " + agent);
 
     boolean verbose = true;
+    
+    EvaluationInfo evaluationInfo = new EvaluationInfo();
 
-    for (int i = 0; i < 5; i++) {
+    String filename = "agent_evaluation"+System.currentTimeMillis()+".txt";
+	String path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data";
+	
+	if (path.startsWith("~" + File.separator)) {
+	    path = System.getProperty("user.home") + path.substring(1);
+	}
+	
+	if (!(new File(path)).exists()) {
+		System.out.println("Supplied path is not valid. Defaulting to Desktop.");
+		path = System.getProperty("user.home");
+	}
+	
+	System.out.println("Logging environment history to: ["+path+"/"+filename+"]");
+	DataWriter out = new DataWriter(path+"/"+filename);
+	// test all-time best
+    for (int i = 0; i < 10; i++) {
+        BasicTask basicTask = new BasicTask(marioAIOptions);
+        basicTask.setOptionsAndReset(marioAIOptions);
+        System.out.println("basicTask = " + basicTask);
+        System.out.println("agent = " + agent);
+        
     	// create file writer and begin logging samples
     	((MLPAgent)agent).startEnvironmentReporting();
 	    if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
 	    {
 	        System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
 	    }
+    	out.print(((MLPAgent)agent).getFilename());
+    	out.print("        "+((((MLPAgent)agent).getMarioStatus()==Environment.MARIO_STATUS_WIN) ? "win" : "loss"));
+    	out.println("        "+basicTask.getEvaluationInfo().computeWeightedFitness());
 	    // close file and destroy file writer
 	    ((MLPAgent)agent).stopEnvironmentReporting();
 	    marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
 	    basicTask.setOptionsAndReset(marioAIOptions);
+	    evaluationInfo = basicTask.getEvaluationInfo();
+	    System.out.println(evaluationInfo.toString());
     }
-    EvaluationInfo evaluationInfo = basicTask.getEvaluationInfo();
-    System.out.println(evaluationInfo.toString());
+    
+    // test best at end of training
+    agent = ((MLPESLearningAgent)learningAgent).getBestRemainingAgent(); // this agent will be evaluated
+    ((MLPESLearningAgent)learningAgent).logBestAgentWeights();
+
+    // perform the gameplay task on the same level
+    //marioAIOptions.setVisualization(true);
+    System.out.println("LearningTrack best agent = " + agent);
+    marioAIOptions.setAgent(agent);
+    
+    for (int i = 0; i < 10; i++) {
+        BasicTask basicTask = new BasicTask(marioAIOptions);
+        basicTask.setOptionsAndReset(marioAIOptions);
+        System.out.println("basicTask = " + basicTask);
+        System.out.println("agent = " + agent);
+        
+    	// create file writer and begin logging samples
+    	((MLPAgent)agent).startEnvironmentReporting();
+	    if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
+	    {
+	        System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
+	    }
+    	out.print(((MLPAgent)agent).getFilename());
+    	out.print("        "+((((MLPAgent)agent).getMarioStatus()==Environment.MARIO_STATUS_WIN) ? "win" : "loss"));
+    	out.println("        "+basicTask.getEvaluationInfo().computeWeightedFitness());
+	    // close file and destroy file writer
+	    ((MLPAgent)agent).stopEnvironmentReporting();
+	    marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
+	    basicTask.setOptionsAndReset(marioAIOptions);
+	    evaluationInfo = basicTask.getEvaluationInfo();
+	    System.out.println(evaluationInfo.toString());
+    }
+    out.closeFile();
+    
 
     int f = evaluationInfo.computeWeightedFitness();
     if (verbose)
