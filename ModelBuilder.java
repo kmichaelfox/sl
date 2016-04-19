@@ -44,6 +44,11 @@ public class ModelBuilder {
 		// cross-validate
 		Evaluation eval = new Evaluation(data);
 		eval.crossValidateModel(tree, data, 10, new Random(1));
+		System.out.println("Error rate: "+eval.errorRate());
+		System.out.println("Correct: "+eval.correct());
+		System.out.println("Percent Correct: "+eval.pctCorrect());
+		System.out.println("Root mean squared error: "+eval.rootMeanSquaredError());
+		System.out.println("Summary:\n"+eval.toSummaryString());
 		
 		// write model to file
 		System.out.println("Writing model to file: ["+path+"/small_identifier.model"+"]");
