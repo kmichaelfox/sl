@@ -1,6 +1,6 @@
 # MarioAI Supervised Learning package
 
-`com.kmichaelfox.agents.sl.automation` contains most of the code (some of it updated) from the origin GA agent.
+`com.kmichaelfox.agents.sl.automation` contains most of the code (some of it updated) from the original GA agent.
 
 `com.kmichaelfox.agents.sl.automation.OldMLPAgent.java` contains an agent that is functionally identical to the original evolutionary strategy agent, while `MLPAgent` in the same package is the update version that contains 7 new observations.
 
