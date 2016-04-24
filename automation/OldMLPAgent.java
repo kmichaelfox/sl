@@ -9,12 +9,12 @@ import ch.idsia.evolution.Evolvable;
 import com.kmichaelfox.agents.sl.EnvironmentHistory;
 import com.kmichaelfox.agents.sl.automation.MLP;
 
-public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
+public class OldMLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	private MLP mlp;
 	final int numberOfOutputs = Environment.numberOfKeys;
 	//final int numberOfInputs = 56;
 	//final int numberOfInputs = 24;
-	final int numberOfInputs = 20;
+	final int numberOfInputs = 13;
 	final int numberOfHiddenNodes = 15;
 	static private final String name = "MLPAgent";
 	
@@ -25,24 +25,24 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	private double currentProgress = 0;
 	private int stuckCounter = 0;
 	
-	public MLPAgent() {
+	public OldMLPAgent() {
 		super(name);
 		mlp = new MLP(numberOfInputs, numberOfHiddenNodes, numberOfOutputs);
 		action = new boolean[Environment.numberOfKeys];
 	}
 
-	private MLPAgent(MLP mlp) {
+	public OldMLPAgent(MLP mlp) {
 	    super(name);
 	    this.mlp = mlp;
 	    action = new boolean[Environment.numberOfKeys];
 	}
 		
 	public Evolvable getNewInstance() {
-	    return new MLPAgent(mlp.getNewInstance());
+	    return new OldMLPAgent(mlp.getNewInstance());
 	}
 	
 	public Evolvable copy() {
-	    return new MLPAgent(mlp.copy());
+	    return new OldMLPAgent(mlp.copy());
 	}
 	
 	public void reset() {
@@ -56,11 +56,11 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	    mlp.mutate();
 	}
 	
-	public MLPAgent recombine(MLPAgent mate) {
-		return new MLPAgent(mlp.recombine(mate.mlp));
+	public OldMLPAgent recombine(OldMLPAgent mate) {
+		return new OldMLPAgent(mlp.recombine(mate.mlp));
 	}
 	
-	public void psoRecombine(MLPAgent last, MLPAgent pBest, MLPAgent gBest) {
+	public void psoRecombine(OldMLPAgent last, OldMLPAgent pBest, OldMLPAgent gBest) {
 		mlp.psoRecombine(last.mlp, pBest.mlp, gBest.mlp);
 	}
 	
@@ -141,13 +141,6 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 	    		isObstacleAhead(1) ? 1 : 0,
 	    		isObstacleAbove() ? 1 : 0,
 	    		isGapAhead(1) ? 1 : 0,
-	    		isGapAhead(-1) ? 1 : 0,         // added
-	    		isMarioStuck() ? 1 : 0,         // added
-	    		isPowerUpAhead(3) ? 1 : 0,      // added
-	    		isPowerUpAhead(-3) ? 1 : 0,     // added
-	    		isPowerUpAbove(3) ? 1 : 0,      // added
-	    		(marioFloatPos[1] / 250),       // added (mario's height, normalized to 0-1)
-	    		isQuestionBlockAbove() ? 1 : 0, // added
 	    		isMarioOnGround ? 1 : 0,
 	    		isMarioAbleToJump ? 1 : 0,
 	    		(marioMode == 2) ? 1 : 0,
@@ -233,13 +226,6 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 		hist.logHistory("@ATTRIBUTE obstacle_left NUMERIC");
 		hist.logHistory("@ATTRIBUTE obstacle_above NUMERIC");
 		hist.logHistory("@ATTRIBUTE gap_ahead NUMERIC");
-		hist.logHistory("@ATTRIBUTE gap_behind NUMERIC");           // added
-		hist.logHistory("@ATTRIBUTE mario_stuck NUMERIC");          // added
-		hist.logHistory("@ATTRIBUTE powerup_ahead NUMERIC");        // added
-		hist.logHistory("@ATTRIBUTE powerup_behind NUMERIC");       // added
-		hist.logHistory("@ATTRIBUTE powerup_above NUMERIC");        // added
-		hist.logHistory("@ATTRIBUTE mario_map_height NUMERIC");     // added
-		hist.logHistory("@ATTRIBUTE question_block_above NUMERIC"); // added
 		hist.logHistory("@ATTRIBUTE mario_on_ground NUMERIC");
 		hist.logHistory("@ATTRIBUTE mario_can_jump NUMERIC");
 		hist.logHistory("@ATTRIBUTE class {NONE,L,R,D,L_JUMP,R_JUMP,JUMP,L_FIRE,R_FIRE,FIRE,L_JUMP_FIRE,R_JUMP_FIRE,JUMP_FIRE}");
@@ -267,20 +253,6 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 		currentState += ((isObstacleAbove() ? 1 : 0)+",");
 		//hist.logHistory("@ATTRIBUTE gap_ahead NUMERIC");
 		currentState += ((isGapAhead(1) ? 1 : 0)+",");
-		//hist.logHistory("@ATTRIBUTE gap_behind NUMERIC");           
-		currentState += ((isGapAhead(-1) ? 1 : 0)+",");               // added
-		//hist.logHistory("@ATTRIBUTE mario_stuck NUMERIC");          
-		currentState += ((isMarioStuck() ? 1 : 0)+",");               // added
-		//hist.logHistory("@ATTRIBUTE powerup_ahead NUMERIC");        
-		currentState += ((isPowerUpAhead(3) ? 1 : 0)+",");            // added
-		//hist.logHistory("@ATTRIBUTE powerup_behind NUMERIC");       
-		currentState += ((isPowerUpAhead(-3) ? 1 : 0)+",");           // added
-		//hist.logHistory("@ATTRIBUTE powerup_above NUMERIC");        
-		currentState += ((isPowerUpAbove(3) ? 1 : 0)+",");            // added
-		//hist.logHistory("@ATTRIBUTE mario_map_height NUMERIC");     
-		currentState += ((marioFloatPos[1] / 250)+",");           // added (normalized to 0-1)
-		//hist.logHistory("@ATTRIBUTE question_block_above NUMERIC");
-		currentState += ((isQuestionBlockAbove() ? 1 : 0)+",");       // added
 		//hist.logHistory("@ATTRIBUTE mario_on_ground NUMERIC");
 		currentState += ((isMarioOnGround ? 1 : 0)+",");
 		//hist.logHistory("@ATTRIBUTE mario_can_jump NUMERIC");
@@ -421,47 +393,4 @@ public class MLPAgent extends BasicMarioAIAgent implements Agent, Evolvable {
 		
 		return hist.getFilename();
 	}
-	
-//	private boolean isEnemyAhead(int stepsAhead) {
-//		//if (getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0) {
-//			//System.out.println(getEnemiesCellValue(marioEgoRow, marioEgoCol + 1));
-//		//}
-//		return getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 ||
-//				getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0;
-////		if (getEnemiesCellValue(marioEgoRow, marioEgoCol + 1) != 2) {
-////			System.out.println(getEnemiesCellValue(marioEgoRow, marioEgoCol + 1));
-////		}
-////		return (getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 &&
-////				getEnemiesCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 20) ||
-////				(getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0 &&
-////				getEnemiesCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 20) ||
-////				(getEnemiesCellValue(marioEgoRow + 1, marioEgoCol + stepsAhead) != 0 &&
-////				getEnemiesCellValue(marioEgoRow + 1, marioEgoCol + stepsAhead) != 20);
-//	}
-//	
-//	private boolean isObstacleAbove() {
-//		return getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != 0 &&
-//				getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol) != -24 ||
-//				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != 0 &&
-//				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol) != -24;
-//	}
-//	
-//	private boolean isObstacleAhead(int stepsAhead) {
-////		return ((getReceptiveFieldCellValue(marioEgoRow - 2, marioEgoCol + 1) == 0 &&
-////	            getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + 1) == 0) ||
-////	            (getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 2) != 0) &&
-////	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 2) != -24 &&
-////	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != 0 &&
-////	            getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != -24);
-////		return getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + 1) != 0;
-//		return (getReceptiveFieldCellValue(marioEgoRow, marioEgoCol + stepsAhead) != 0 ||
-//				getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + stepsAhead) != 0);// &&
-//				//getReceptiveFieldCellValue(marioEgoRow - 1, marioEgoCol + 1) != -24) &&
-//				//(getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) != 0 &&
-//				//getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) != -24);
-//	}
-//	
-//	private boolean isGapAhead() {
-//		return getReceptiveFieldCellValue(marioEgoRow + 1, marioEgoCol + 1) == 0;
-//	}
 }

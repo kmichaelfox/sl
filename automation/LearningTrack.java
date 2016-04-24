@@ -28,10 +28,12 @@
 package com.kmichaelfox.agents.sl.automation;
 
 import java.io.File;
+import java.io.IOException;
 
 import ch.idsia.agents.Agent;
 
 import com.kmichaelfox.agents.sl.DataWriter;
+import com.kmichaelfox.agents.sl.FileArrayProvider;
 import com.kmichaelfox.agents.sl.automation.LearningAgent;
 import com.kmichaelfox.agents.sl.automation.MLPESLearningAgent;
 
@@ -57,233 +59,240 @@ import ch.idsia.tools.MarioAIOptions;
 
 public final class LearningTrack
 {
-final static long numberOfTrials = 1000;
-final static boolean scoring = false;
-private static int killsSum = 0;
-private static float marioStatusSum = 0;
-private static int timeLeftSum = 0;
-private static int marioModeSum = 0;
-private static boolean detailedStats = false;
+	final static long numberOfTrials = 1000;
+	final static boolean scoring = false;
+	private static int killsSum = 0;
+	private static float marioStatusSum = 0;
+	private static int timeLeftSum = 0;
+	private static int marioModeSum = 0;
+	private static boolean detailedStats = false;
 
-final static int populationSize = 100;
+	final static int populationSize = 100;
 
-private static int evaluateSubmission(MarioAIOptions marioAIOptions, LearningAgent learningAgent)
-{
-    LearningTask learningTask = new LearningTask(marioAIOptions); // provides the level
+	private static int evaluateSubmission(MarioAIOptions marioAIOptions, LearningAgent learningAgent) {
+		int f = 0;
+		//for (int j = 0; j < 3; j++) {
+			marioAIOptions.setVisualization(false);
+			LearningTask learningTask = new LearningTask(marioAIOptions); // provides the level
 
-    learningAgent.setEvaluationQuota(LearningTask.getEvaluationQuota());        // limits the number of evaluations per run for LearningAgent
-    learningAgent.setLearningTask(learningTask);  // gives LearningAgent access to evaluator via method LearningTask.evaluate(Agent)
-    learningAgent.init();
-    for (int i = 0; i < 5; i++) {
-    	learningAgent.learn(); // launches the training process. numberOfTrials happen here
-    	marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
-    	learningTask.setOptionsAndReset(marioAIOptions);
-    }
-    Agent agent = learningAgent.getBestAgent(); // this agent will be evaluated
-    ((MLPESLearningAgent)learningAgent).logBestAgentWeights();
+			learningAgent.setEvaluationQuota(LearningTask.getEvaluationQuota());        // limits the number of evaluations per run for LearningAgent
+			learningAgent.setLearningTask(learningTask);  // gives LearningAgent access to evaluator via method LearningTask.evaluate(Agent)
+			learningAgent.init();
+			learningAgent.learn(); // launches the training process. numberOfTrials happen here
+			
+			Agent agent = learningAgent.getBestAgent(); // this agent will be evaluated
+			((MLPESLearningAgent)learningAgent).logBestAgentWeights();
 
-    // perform the gameplay task on the same level
-    //marioAIOptions.setVisualization(true);
-    System.out.println("LearningTrack best agent = " + agent);
-    marioAIOptions.setAgent(agent);
-//    BasicTask basicTask = new BasicTask(marioAIOptions);
-//    basicTask.setOptionsAndReset(marioAIOptions);
-//    System.out.println("basicTask = " + basicTask);
-//    System.out.println("agent = " + agent);
+			// perform the gameplay task on the same level
+			marioAIOptions.setVisualization(true);
+			System.out.println("LearningTrack best agent = " + agent);
+			marioAIOptions.setAgent(agent);
+			BasicTask basicTask = new BasicTask(marioAIOptions);
+			basicTask.setOptionsAndReset(marioAIOptions);
+			System.out.println("basicTask = " + basicTask);
+			System.out.println("agent = " + agent);
 
-    boolean verbose = true;
-    
-    EvaluationInfo evaluationInfo = new EvaluationInfo();
+			boolean verbose = true;
 
-    String filename = "agent_evaluation"+System.currentTimeMillis()+".txt";
-	String path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data";
-	
-	if (path.startsWith("~" + File.separator)) {
-	    path = System.getProperty("user.home") + path.substring(1);
+			EvaluationInfo evaluationInfo = new EvaluationInfo();
+
+			String filename = "agent_evaluation"+System.currentTimeMillis()+".txt";
+			String path = "~/Documents/Class Documents/2016_Spring/GameAI/SL Assignment Data";
+
+			if (path.startsWith("~" + File.separator)) {
+				path = System.getProperty("user.home") + path.substring(1);
+			}
+
+			if (!(new File(path)).exists()) {
+				System.out.println("Supplied path is not valid. Defaulting to Desktop.");
+				path = System.getProperty("user.home");
+			}
+
+			System.out.println("Logging evaluation history to: ["+path+"/"+filename+"]");
+			DataWriter out = new DataWriter(path+"/"+filename);
+
+			// test all-time best
+			for (int i = 0; i < 1; i++) {
+				// create file writer and begin logging samples
+				((MLPAgent)agent).startEnvironmentReporting();
+				if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
+				{
+					System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
+				}
+				out.println("all-time best:");
+				out.print(((MLPAgent)agent).getFilename());
+				out.print("        "+((((MLPAgent)agent).getMarioStatus()==Environment.MARIO_STATUS_WIN) ? " win" : "loss"));
+				out.println("        "+basicTask.getEvaluationInfo().computeWeightedFitness());
+				
+				
+				// close file and destroy file writer
+				((MLPAgent)agent).stopEnvironmentReporting();
+
+				evaluationInfo = basicTask.getEvaluationInfo();
+				System.out.println(evaluationInfo.toString());
+			}
+
+			// test best at end of training
+			agent = ((MLPESLearningAgent)learningAgent).getBestRemainingAgent(); // this agent will be evaluated
+			((MLPESLearningAgent)learningAgent).logBestAgentWeights();
+
+			// perform the gameplay task on the same level
+			System.out.println("LearningTrack best agent = " + agent);
+			marioAIOptions.setAgent(agent);
+			basicTask.setOptionsAndReset(marioAIOptions);
+
+			for (int i = 0; i < 1; i++) {
+				// create file writer and begin logging samples
+				((MLPAgent)agent).startEnvironmentReporting();
+				if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
+				{
+					System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
+				}
+				out.println("remaining best:");
+				out.print(((MLPAgent)agent).getFilename());
+				out.print("        "+((((MLPAgent)agent).getMarioStatus()==Environment.MARIO_STATUS_WIN) ? " win" : "loss"));
+				out.println("        "+basicTask.getEvaluationInfo().computeWeightedFitness());
+
+				// close file and destroy file writer
+				((MLPAgent)agent).stopEnvironmentReporting();
+				evaluationInfo = basicTask.getEvaluationInfo();
+				System.out.println(evaluationInfo.toString());
+				
+				marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
+			}
+			out.closeFile();
+
+
+			f = evaluationInfo.computeWeightedFitness();
+			if (verbose)
+			{
+				System.out.println("Intermediate SCORE = " + f + ";\n Details: " + evaluationInfo.toString());
+			}
+		//}
+
+		return f;
 	}
-	
-	if (!(new File(path)).exists()) {
-		System.out.println("Supplied path is not valid. Defaulting to Desktop.");
-		path = System.getProperty("user.home");
-	}
-	
-	System.out.println("Logging environment history to: ["+path+"/"+filename+"]");
-	DataWriter out = new DataWriter(path+"/"+filename);
-	// test all-time best
-    for (int i = 0; i < 10; i++) {
-        BasicTask basicTask = new BasicTask(marioAIOptions);
-        basicTask.setOptionsAndReset(marioAIOptions);
-        System.out.println("basicTask = " + basicTask);
-        System.out.println("agent = " + agent);
-        
-    	// create file writer and begin logging samples
-    	((MLPAgent)agent).startEnvironmentReporting();
-	    if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
-	    {
-	        System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
-	    }
-    	out.print(((MLPAgent)agent).getFilename());
-    	out.print("        "+((((MLPAgent)agent).getMarioStatus()==Environment.MARIO_STATUS_WIN) ? "win" : "loss"));
-    	out.println("        "+basicTask.getEvaluationInfo().computeWeightedFitness());
-	    // close file and destroy file writer
-	    ((MLPAgent)agent).stopEnvironmentReporting();
-	    marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
-	    basicTask.setOptionsAndReset(marioAIOptions);
-	    evaluationInfo = basicTask.getEvaluationInfo();
-	    System.out.println(evaluationInfo.toString());
-    }
-    
-    // test best at end of training
-    agent = ((MLPESLearningAgent)learningAgent).getBestRemainingAgent(); // this agent will be evaluated
-    ((MLPESLearningAgent)learningAgent).logBestAgentWeights();
 
-    // perform the gameplay task on the same level
-    //marioAIOptions.setVisualization(true);
-    System.out.println("LearningTrack best agent = " + agent);
-    marioAIOptions.setAgent(agent);
-    
-    for (int i = 0; i < 10; i++) {
-        BasicTask basicTask = new BasicTask(marioAIOptions);
-        basicTask.setOptionsAndReset(marioAIOptions);
-        System.out.println("basicTask = " + basicTask);
-        System.out.println("agent = " + agent);
-        
-    	// create file writer and begin logging samples
-    	((MLPAgent)agent).startEnvironmentReporting();
-	    if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
-	    {
-	        System.out.println("MarioAI: out of computational time per action! Agent disqualified!");
-	    }
-    	out.print(((MLPAgent)agent).getFilename());
-    	out.print("        "+((((MLPAgent)agent).getMarioStatus()==Environment.MARIO_STATUS_WIN) ? "win" : "loss"));
-    	out.println("        "+basicTask.getEvaluationInfo().computeWeightedFitness());
-	    // close file and destroy file writer
-	    ((MLPAgent)agent).stopEnvironmentReporting();
-	    marioAIOptions.setLevelRandSeed((int)System.currentTimeMillis());
-	    basicTask.setOptionsAndReset(marioAIOptions);
-	    evaluationInfo = basicTask.getEvaluationInfo();
-	    System.out.println(evaluationInfo.toString());
-    }
-    out.closeFile();
-    
+	private static int oldEval(MarioAIOptions marioAIOptions, LearningAgent learningAgent)
+	{
+		boolean verbose = false;
+		float fitness = 0;
+		int disqualifications = 0;
 
-    int f = evaluationInfo.computeWeightedFitness();
-    if (verbose)
-    {
-        System.out.println("Intermediate SCORE = " + f + ";\n Details: " + evaluationInfo.toString());
-    }
+		marioAIOptions.setVisualization(false);
+		//final LearningTask learningTask = new LearningTask(marioAIOptions);
+		//learningTask.setAgent(learningAgent);
+		LearningTask task = new LearningTask(marioAIOptions);
 
-    return f;
-}
+		learningAgent.newEpisode();
+		learningAgent.setLearningTask(task);
+		learningAgent.setEvaluationQuota(numberOfTrials);
+		learningAgent.init();
 
-private static int oldEval(MarioAIOptions marioAIOptions, LearningAgent learningAgent)
-{
-    boolean verbose = false;
-    float fitness = 0;
-    int disqualifications = 0;
-
-    marioAIOptions.setVisualization(false);
-    //final LearningTask learningTask = new LearningTask(marioAIOptions);
-    //learningTask.setAgent(learningAgent);
-    LearningTask task = new LearningTask(marioAIOptions);
-
-    learningAgent.newEpisode();
-    learningAgent.setLearningTask(task);
-    learningAgent.setEvaluationQuota(numberOfTrials);
-    learningAgent.init();
-
-    for (int i = 0; i < numberOfTrials; ++i)
-    {
-        System.out.println("-------------------------------");
-        System.out.println(i + " trial");
-        //learningTask.reset(marioAIOptions);
-        task.setOptionsAndReset(marioAIOptions);
-        // inform your agent that new episode is coming, pick up next representative in population.
-//            learningAgent.learn();
-        task.runSingleEpisode(1);
-        /*if (!task.runSingleEpisode())  // make evaluation on an episode once
+		for (int i = 0; i < numberOfTrials; ++i)
+		{
+			System.out.println("-------------------------------");
+			System.out.println(i + " trial");
+			//learningTask.reset(marioAIOptions);
+			task.setOptionsAndReset(marioAIOptions);
+			// inform your agent that new episode is coming, pick up next representative in population.
+			//            learningAgent.learn();
+			task.runSingleEpisode(1);
+			/*if (!task.runSingleEpisode())  // make evaluation on an episode once
         {
             System.out.println("MarioAI: out of computational time per action!");
             disqualifications++;
             continue;
         }*/
 
-        EvaluationInfo evaluationInfo = task.getEnvironment().getEvaluationInfo();
-        float f = evaluationInfo.computeWeightedFitness();
-        if (verbose)
-        {
-            System.out.println("Intermediate SCORE = " + f + "; Details: " + evaluationInfo.toStringSingleLine());
-        }
-        // learn the reward
-        //learningAgent.giveReward(f);
-    }
-    // do some post processing if you need to. In general: select the Agent with highest score.
-    learningAgent.learn();
-    // perform the gameplay task on the same level
-    marioAIOptions.setVisualization(true);
-    Agent bestAgent = learningAgent.getBestAgent();
-    
-    marioAIOptions.setAgent(bestAgent);
-    BasicTask basicTask = new BasicTask(marioAIOptions);
-    basicTask.setOptionsAndReset(marioAIOptions);
-//        basicTask.setAgent(bestAgent);
-    if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
-    {
-        System.out.println("MarioAI: out of computational time per action!");
-        disqualifications++;
-    }
-    EvaluationInfo evaluationInfo = basicTask.getEnvironment().getEvaluationInfo();
-    int f = evaluationInfo.computeWeightedFitness();
-    if (verbose)
-    {
-        System.out.println("Intermediate SCORE = " + f + "; Details: " + evaluationInfo.toStringSingleLine());
-    }
-    System.out.println("LearningTrack final score = " + f);
-    return f;
-}
+			EvaluationInfo evaluationInfo = task.getEnvironment().getEvaluationInfo();
+			float f = evaluationInfo.computeWeightedFitness();
+			if (verbose)
+			{
+				System.out.println("Intermediate SCORE = " + f + "; Details: " + evaluationInfo.toStringSingleLine());
+			}
+			// learn the reward
+			//learningAgent.giveReward(f);
+		}
+		// do some post processing if you need to. In general: select the Agent with highest score.
+		learningAgent.learn();
+		// perform the gameplay task on the same level
+		marioAIOptions.setVisualization(true);
+		Agent bestAgent = learningAgent.getBestAgent();
+
+		marioAIOptions.setAgent(bestAgent);
+		BasicTask basicTask = new BasicTask(marioAIOptions);
+		basicTask.setOptionsAndReset(marioAIOptions);
+		//        basicTask.setAgent(bestAgent);
+		if (!basicTask.runSingleEpisode(1))  // make evaluation on the same episode once
+		{
+			System.out.println("MarioAI: out of computational time per action!");
+			disqualifications++;
+		}
+		EvaluationInfo evaluationInfo = basicTask.getEnvironment().getEvaluationInfo();
+		int f = evaluationInfo.computeWeightedFitness();
+		if (verbose)
+		{
+			System.out.println("Intermediate SCORE = " + f + "; Details: " + evaluationInfo.toStringSingleLine());
+		}
+		System.out.println("LearningTrack final score = " + f);
+		return f;
+	}
 
 
-public static void main(String[] args)
-{
-    // set up parameters
-    MarioAIOptions marioAIOptions = new MarioAIOptions(args);
-    marioAIOptions.setVisualization(false);
-    LearningAgent learningAgent = new MLPESLearningAgent(); // Learning track competition entry goes here
-//    LearningAgent learningAgent = (LearningAgent) marioAIOptions.getAgent();
-    System.out.println("main.learningAgent = " + learningAgent);
+	public static void main(String[] args)
+	{
+		//for (int i = 0; i < 3; i++) {
+		// set up parameters
+		MarioAIOptions marioAIOptions = new MarioAIOptions(args);
+		marioAIOptions.setVisualization(false);
+		LearningAgent learningAgent = new MLPESLearningAgent(); // Learning track competition entry goes here
+		//    LearningAgent learningAgent = (LearningAgent) marioAIOptions.getAgent();
+		System.out.println("main.learningAgent = " + learningAgent);
 
-//        Level 0
-//    marioAIOptions.setArgs("-lf on -lg on");
-    marioAIOptions.setFPS(200);
-    float finalScore = LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
+		//        Level 0
+		//    marioAIOptions.setArgs("-lf on -lg on");
+		marioAIOptions.setFPS(200);
+//		switch (i) {
+//		case 0:
+//			marioAIOptions.setMarioMode(2);
+//			break;
+//		case 1:
+//			marioAIOptions.setMarioMode(1);
+//			break;
+//		default:
+//			marioAIOptions.setMarioMode(0);
+//		}
+		float finalScore = LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
 
-//        Level 1
-//    marioAIOptions = new MarioAIOptions(args);
-//    marioAIOptions.setAgent(learningAgent);
-//    marioAIOptions.setArgs("-lco off -lb on -le off -lhb off -lg on -ltb on -lhs off -lca on -lde on -ld 5 -ls 133829");
-//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
+		//        Level 1
+		//    marioAIOptions = new MarioAIOptions(args);
+		//    marioAIOptions.setAgent(learningAgent);
+		//    marioAIOptions.setArgs("-lco off -lb on -le off -lhb off -lg on -ltb on -lhs off -lca on -lde on -ld 5 -ls 133829");
+		//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
 
-//        Level 2
-//    marioAIOptions = new MarioAIOptions(args);
-//    marioAIOptions.setArgs("-lde on -i on -ld 30 -ls 133434");
-//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
-//
-////        Level 3
-//    marioAIOptions = new MarioAIOptions(args);
-//    marioAIOptions.setArgs("-lde on -i on -ld 30 -ls 133434 -lhb on");
-//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
-//
-////        Level 4
-//    marioAIOptions = new MarioAIOptions(args);
-//    marioAIOptions.setArgs("-lla on -le off -lhs on -lde on -ld 5 -ls 1332656");
-//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
-//
-//    // Level 5 (bonus level)
-//    marioAIOptions = new MarioAIOptions(args);
-//    marioAIOptions.setArgs("-le off -lhs on -lde on -ld 5 -ls 1332656");
-//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
+		//        Level 2
+		//    marioAIOptions = new MarioAIOptions(args);
+		//    marioAIOptions.setArgs("-lde on -i on -ld 30 -ls 133434");
+		//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
+		//
+		////        Level 3
+		//    marioAIOptions = new MarioAIOptions(args);
+		//    marioAIOptions.setArgs("-lde on -i on -ld 30 -ls 133434 -lhb on");
+		//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
+		//
+		////        Level 4
+		//    marioAIOptions = new MarioAIOptions(args);
+		//    marioAIOptions.setArgs("-lla on -le off -lhs on -lde on -ld 5 -ls 1332656");
+		//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
+		//
+		//    // Level 5 (bonus level)
+		//    marioAIOptions = new MarioAIOptions(args);
+		//    marioAIOptions.setArgs("-le off -lhs on -lde on -ld 5 -ls 1332656");
+		//    finalScore += LearningTrack.evaluateSubmission(marioAIOptions, learningAgent);
 
-    System.out.println("finalScore = " + finalScore);
-    System.exit(0);
-}
+		System.out.println("finalScore = " + finalScore);
+		//}
+		System.exit(0);
+	}
 }

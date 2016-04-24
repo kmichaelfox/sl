@@ -61,7 +61,7 @@ public class MLPESLearningAgent implements LearningAgent
 	private int bestScore = 5;
 	ES es;
 	int populationSize = 60;
-	int generations = 200;
+	int generations = 1000;
 	long evaluationQuota; //common number of trials
 	long currentEvaluation; // number of exhausted trials
 	private String name = getClass().getSimpleName();
@@ -84,7 +84,7 @@ public class MLPESLearningAgent implements LearningAgent
 			final MLPAgent a = (MLPAgent)es.getBests()[0];
 			System.out.print("Generation: " + gen + " current best: " + df.format(fitn) + ";  ");
 
-			if (fitn > bestScore && (a.getMarioStatus() == Environment.MARIO_STATUS_WIN))
+			if (fitn > bestScore /*&& (a.getMarioStatus() == Environment.MARIO_STATUS_WIN)*/)
 			{
 				bestScore = fitn;
 				//fileName = "evolved-progress-" + name + gen + "-uid-" + GlobalOptions.getTimeStamp() + ".xml";
